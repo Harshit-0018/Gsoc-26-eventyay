@@ -1,347 +1,130 @@
-eventyay-tickets (ENext)
-========================
+# FOSSASIA Eventyay — My Open Source Contributions
 
-Project status & release cycle
-------------------------------
+> Fork of [fossasia/eventyay](https://github.com/fossasia/eventyay) — an open source event management platform with 1.6k+ stars, used globally for ticketing, talks, and video management. Built with Python, Django, Vue.js, and PostgreSQL.
 
-Welcome to the **Eventyay** project! The ticketing component of the system provides options for **ticket sales and event-related items** such as T-shirts. Eventyay has been in development since **2014**. Its ticketing component is based on a fork of **Pretix**.
+---
 
-ENext is the new and updated version of Eventyay with a unified codebase for the Tickets, Talk, and Videos components.
+## About the Project
 
-Getting Started
----------------
+**Eventyay** is FOSSASIA's flagship open source platform for managing events end-to-end — from ticket sales and attendee management to talk scheduling and video streaming. It is one of the primary projects under FOSSASIA, a globally recognized GSoC (Google Summer of Code) organization.
 
-Python-based development
-------------------------------------------------------------
+Contributing to eventyay means working on a production-grade Django/Python codebase reviewed by international maintainers, with automated review from tools like Sourcery AI, GitHub Copilot, and ChatGPT Codex.
 
-0. **Clone the repository**:
+---
 
-.. code-block:: bash
+## My Pull Requests
 
-  git clone https://github.com/fossasia/eventyay.git
+### ✅ [#3438 — Fix product meta typeahead filtering for limited team members](https://github.com/fossasia/eventyay/pull/3438)
+**Status: Merged** | **Approved by 3 reviewers** | May 4, 2026
 
-1. **Install external dependencies**:
+**Problem:**
+Team members with limited event access were seeing incorrect product meta value suggestions in the typeahead search. The queryset used for default product meta values was incorrectly pulling from the broader `matches` queryset instead of the scoped `defaults` queryset, causing limited-access users to see metadata from events they shouldn't have access to.
 
-The *deb-packages.txt* file lists Debian packages we need to install.
-If you are using Debian / Ubuntu, you can install them quickly with this command:
+**What I did:**
+- Fixed the queryset assignment in `app/eventyay/control/views/typeahead.py` to correctly filter default product meta values based on the events the limited team member has permission to access
+- Added organizer constraint to team filtering to prevent cross-organizer data leakage
+- Wrote a regression test in `app/tests/tickets/control/test_typeahead.py` to lock in the correct behavior and prevent future regressions
 
-For traditional shell:
+**Files Changed:**
+- `app/eventyay/control/views/typeahead.py`
+- `app/tests/tickets/control/test_typeahead.py`
 
-.. code-block:: bash
+**Review process:** Went through automated Sourcery AI review, addressed feedback, received LGTM from 3 maintainers (ArnavBallinCode, Rachit7168, Saksham-Sirohi), tested locally before merge.
 
-  $ xargs -a deb-packages.txt sudo apt install
+---
 
-For Nushell:
+### 🔄 [#3446 — fix: improve webhook reliability with timeout, break-to-continue, and explicit error status](https://github.com/fossasia/eventyay/pull/3446)
+**Status: Closed** (closed in favour of existing PRs #3394 and #3396) | April 30, 2026
 
-.. code-block:: nu
+**Problem:**
+The webhook delivery system had three critical reliability issues:
+1. A `break` statement in `notify_webhooks` was silently dropping all remaining webhook notifications in a batch whenever a single log entry lacked an organizer or webhook type
+2. The `send_webhook` function had no HTTP timeout, meaning a hanging remote endpoint could block a Celery worker indefinitely — and enough such endpoints could exhaust the entire worker pool
+3. The `RequestException` handler created `WebHookCall` records without explicitly setting `success=False`, relying on model defaults and causing inconsistency
 
-  > open deb-packages.txt | lines | sudo apt install ...$in
+**What I did:**
+- Replaced `break` with `continue` in `notify_webhooks` so that only the problematic log entry is skipped while remaining entries continue processing (fixes issue #3400)
+- Added `WEBHOOK_TIMEOUT = 30` seconds constant and applied it to the `requests.post()` call in `send_webhook` to prevent Celery worker pool exhaustion (fixes issue #3398)
+- Made the timeout configurable via Django settings after Sourcery AI review feedback
+- Added explicit `success=False` in the `RequestException` error path for consistent `WebHookCall` records
+- Added `logger.debug()` calls for skipped entries to improve observability
+- Added response body size limiting to prevent OOM from oversized webhook responses
 
+**Files Changed:**
+- `app/eventyay/api/webhooks.py` — 22+ insertions, 3 deletions
+- `app/eventyay/config/settings.py` — added configurable webhook timeout
 
-If you are using other Linux distros, please guess the corresponding package names for that list.
+**Review process:** Reviewed by Sourcery AI, GitHub Copilot, and ChatGPT Codex. Addressed all feedback across 4 commits. PR was eventually closed as another contributor had raised PRs for the same issues earlier.
 
-Other than that, please install `uv`_, the Python package manager.
+---
 
-2. **Install and run Redis**
+### 🔄 [#3138 — Fix: Standardize login button text for consistency](https://github.com/fossasia/eventyay/pull/3138)
+**Status: Closed** (closed in favour of #3177) | April 2, 2026
 
-Depending on your distribution.
+**Problem:**
+The login page had inconsistent UI text — the email login button read "Login with Email" while the rest of the application used the standardized "Log in" phrasing, creating an inconsistent user experience.
 
-3. **Create a PostgreSQL database**
+**What I did:**
+- Updated the button text in `app/eventyay/eventyay_common/templates/eventyay_common/auth/_login_options.html`
+- Maintained the `{% translate %}` tag for i18n consistency so the fix works across all supported languages
+- Provided before/after screenshots in the PR description
 
-The default database name that the project needs is ``eventyay-db``. If you are using Linux, the simplest way
-to work with database is to use its "peer" mode (no need to remember password).
+**Files Changed:**
+- `app/eventyay/eventyay_common/templates/eventyay_common/auth/_login_options.html`
 
-Create a Postgres user with the same name as your Linux user:
+**Review process:** Reviewed by Sourcery AI and GitHub Copilot. Closed in favour of a superseding PR that addressed the same issue.
 
-.. code-block:: sh
+---
 
-  sudo -u postgres createuser -s $USER
+### 🔄 [#3108 — Fix: update login button text to 'Log in with email' for consistency](https://github.com/fossasia/eventyay/pull/3108)
+**Status: Closed** | April 1, 2026
 
-(``-s`` means *superuser*)
+**Problem:**
+Initial PR addressing the same login button text inconsistency (issue #3099) — the button read "Login with Email" instead of the consistent "Log in with email" wording used throughout the app.
 
-Then just create a database owned by your user:
+**What I did:**
+- Updated login button template text
+- Maintained i18n tag structure
 
-.. code-block:: sh
+This was the first PR I raised on the eventyay codebase — the starting point of my open source contribution journey here.
 
-  createdb eventyay-db
+---
 
-From now on, you can do everything with the database without specifying password, host and port.
+## Key Learnings from Contributing
 
-.. code-block:: sh
+**Technical:**
+- Working with large Django/Python codebases with 20,000+ commits
+- Understanding Celery task queues and webhook delivery patterns
+- Writing regression tests with pytest and Django test client
+- Handling i18n/translation string updates correctly
+- Configuring Django settings for runtime-tunable constants
 
-  psql eventyay-db
+**Process:**
+- Writing clear, structured PR descriptions with Summary, Changes, Testing sections
+- Responding to automated AI code reviews (Sourcery, Copilot, Codex)
+- Iterating on feedback across multiple commits
+- Understanding open source contribution etiquette — picking unassigned issues, respecting prior work
 
-In case you cannot take advantage of PostgreSQL *peer* mode, you need to create a *eventyay.local.toml* file with these values:
+---
 
-.. code-block:: toml
+## Tech Stack
 
-  postgres_user = 'your_db_user'
-  postgres_password = 'your_db_password'
-  postgres_host = 'localhost'
-  postgres_port = 5432
+| Layer | Technology |
+|-------|------------|
+| Backend | Python, Django |
+| Frontend | HTML, JavaScript, Vue.js, CSS/SCSS |
+| Database | PostgreSQL |
+| Task Queue | Celery |
+| Testing | pytest, Django Test Client |
+| DevOps | Docker, GitHub Actions |
 
+---
 
-4. **Enter the project directory and app directory**:
+## About Me
 
-.. code-block:: bash
+**Harshit Singh** | Final Year B.Tech @ NIT Calicut (Batch 2027)
 
-  cd eventyay/app
-
-5. **Switch to the `dev` branch**:
-
-.. code-block:: bash
-
-  git switch dev
-
-6. **Install Python packages**
-
-Use ``uv`` to create virtual environment and install Python packages at the same time.
-**Make sure you are in app directory**
-
-.. code-block:: sh
-
-  uv sync --all-extras --all-groups
-
-7. **Activate virtual environment**
-
-After running ``uv sync``, activate a virtual environment
-
-.. code-block:: sh
-
-  . .venv/bin/activate
-
-8. **Initialize the database**:
-
-.. code-block:: bash
-
-  python manage.py migrate
-
-9. **Create an admin user account** (for accessing the admin panel):
-
-.. code-block:: bash
-
-  python manage.py create_admin_user
-
-10. **Build Frontend Assets**:
-
-.. code-block:: bash
-
-  make npminstall
-  python manage.py collectstatic --noinput
-  python manage.py compress --force
-
-11. **Run the development server**:
-
-.. code-block:: bash
-
-  python manage.py runserver
-
-Mobile testing note: If you want to test the site from an **Android emulator**, use
-``http://10.0.2.2:8000/`` (Android's alias for the host machine's localhost).
-
-
-Notes: If you get permission errors for eventyay/static/CACHE, make sure that the directory and
-all below it are own by you.
-
-Docker based development
-------------------------
-
-We assume your current working directory is the checkout of this repo.
-
-1. **Create .env.dev**
-
-   .. code-block:: bash
-
-      cp deployment/env.dev.sample .env.dev
-
-2. **Build and run the images**
-
-   .. code-block:: bash
-
-      docker compose up -d --build
-
-3. **Create an admin account** (for accessing the admin panel):
-
-   This asks for an email and a password, and this information will be
-   used to log into the system the first time.
-
-   This should be necessary only once, since the database is persisted
-   as docker volume. If you see strange behaviour, see Troubleshooting below
-   on how to reset.
-
-   .. code-block:: bash
-
-      docker exec -ti eventyay-next-web python manage.py create_admin_user
-
-4. **Visit the site**
-
-   Open `http://localhost:8000` in a browser.
-
-   If there are issues, see Troubleshooting below.
-
-
-5. **Checking the logs**
-
-   .. code-block:: bash
-
-      docker compose logs -f
-
-
-6. **Shut down**
-
-   To shut down the development docker deployment, run
-
-   .. code-block:: bash
-
-      docker compose down
-
-The directory `app/eventyay` is mounted into the docker, thus live editing is supported.
-
-
-Troubleshooting
-~~~~~~~~~~~~~~~
-
-**CSS not loading / MIME type errors**
-
-In some environments (e.g. Docker with WSL), you may encounter cases where
-pages load without CSS or only some pages load correctly.
-
-Browser console errors may look like:
-
-::
-
-     Refused to apply style because its MIME type is 'text/html'
-
-This usually means a static asset was requested but an HTML response
-(e.g. a 404 page) was returned instead.
-
-To rebuild static assets, run:
-
-.. code-block:: bash
-
-   docker exec -ti eventyay-next-web make npminstall
-   docker exec -ti eventyay-next-web python manage.py collectstatic --noinput
-   docker exec -ti eventyay-next-web python manage.py compress --force
-   docker restart eventyay-next-web
-
-After this, hard-refresh the browser (Ctrl + Shift + R).
-
-
-**Database issues**
-
-The database in the dev docker setup is created in a docker volume. If you see
-errors concerning login etc, you can completely reset the database (you will
-lose all configuration/organizers/events!) and removing the database container
-by calling
-
-.. code-block:: bash
-
-   docker volume rm eventyay-next_postgres_data_dev
-   docker rm eventyay-next-db
-
-
-
-Configuration
--------------
-
-Our configuration are based on TOML files. First of all, check the ``BaseSettings`` class in *app/eventyay/config/next_settings.py* for possible keys and original values.
-Other than that, the configuration is divided to three running environments:
-
-* ``development``: With default values in *eventyay.development.toml*.
-* ``production``: With default values in *eventyay.production.toml*.
-* ``testing``: With default values in *eventyay.testing.toml*.
-
-The values in these files will override ones in ``BaseSettings``.
-
-Running environment is selected via the ``EVY_RUNNING_ENVIRONMENT`` environment variable. It is pre-set in *manage.py*, *wsgi.py* and *asgi.py*.
-For example, if you want to run a command in production environment, you can do:
-
-.. code-block:: bash
-
-  EVY_RUNNING_ENVIRONMENT=production ./manage.py command
-
-How to override the configuration values
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-- Create a file named *eventyay.local.toml* in the same folder as *manage.py* file.
-- Add only the values you want to override in this file. For example, to override the ``debug`` value in production environment, you only need to add one line:
-
-  .. code-block:: toml
-
-    debug = true
-
-- You can also override values via environment variables. The environment variable names are the upper case versions of the setting keys, prefixed by ``EVY_``.
-  For example, to override the ``debug`` value in production environment, you can set the environment variable ``EVY_DEBUG`` to ``true``.
-
-  .. code-block:: bash
-
-    export EVY_DEBUG=true
-
-- Dotenv (*.env*) file is also supported, but please be aware that the values from *.env* file will be overridden by environment variables.
-
-- Sensitive data like passwords, API keys should be provided via files in *.secrets* directory, each file for a key.
-  The file name follows the pattern of environment variable names above (with prefix), the file content is the value.
-  For example, to provide a value for the ``secret_key`` setting, you should create a file named ``EVY_SECRET_KEY`` and put the value inside.
-
-- If you deployed the app via Docker containers, you can provide the secret data via `Docker secrets`_.
-
-Why TOML?
-~~~~~~~~~
-
-TOML has rich data types. In comparison with *ini* format that this project used before, *ini* doesn't have "list" type, we had to define a convention to encode lists in strings.
-This method is not portable, not understood by other tools and libraries, and error-prone.
-TOML has dedicated syntax for lists, making it easier to read and write such configurations, and developers can use different tools and libraries without worrying about incompatibility.
-
-Due to this reason, overriding configuration via environment variables are not encouraged. The environment variables only have one data type: string!
-
-
-Deployment
-----------
-
-See DEPLOYMENT.md
-
-
-Future improvement
-------------------
-
-Backend
-~~~~~~~
-
-- Apply type annotation for Python and MyPy (or ty) checking. Benefit: It improves IDE autocomplete and detect some bugs early.
-- Use Jinja for templating (replacing Django template).
-  Benefit: We can embed Python function to template and call. With Django template, we have to define filter, custom tags.
-- Use djlint (or a better tool) to clean template code.
-
-Frontend
-~~~~~~~~
-
-- Get rid of jQuery code, convert them to Vue or AlpineJS.
-- Consider two options:
-  +  Migrating to a Single Page Application, where we can use the full power of Vue and can apply TypeScript to improve IDE autocomplete and detect bugs early.
-  +  HTMX + AlpineJS if we still want Django to produce HTML.
-
-
-Support
--------
-
-This project is **free and open-source software**. Professional support is available to customers of the **hosted Eventyay service** or **Eventyay enterprise offerings**. If you are interested in commercial support, hosting services, or supporting this project financially, please go to `eventyay.com`.
-
-Legal & Licensing
------------------
-
-**License**: This project is published under the **Apache License 2.0**.
-See the `LICENSE <LICENSE>`_ file for complete license text.
-
-**Attribution**: See the `NOTICE <NOTICE>`_ file for information about upstream
-projects and attribution.
-
-**Contributing**: Contributions are accepted under the Apache License 2.0.
-See `CONTRIBUTING.md <CONTRIBUTING.md>`_ and `CLA.md <CLA.md>`_ for details.
-
-This project is maintained by **FOSSASIA**.
-
-.. _uv: https://docs.astral.sh/uv/getting-started/installation/
-.. _Docker secrets: https://docs.docker.com/engine/swarm/secrets/
-.. _installation guide: https://docs.eventyay.com/en/latest/admin/installation/index.html
-.. _eventyay.com: https://eventyay.com
-.. _blog: https://blog.eventyay.com
+- 🏆 LeetCode Guardian | Rating 2270 | Top 0.63% globally
+- 🌍 Open Source Contributor — FOSSASIA & GSSoC'26
+- 💼 Intern @ BHEL | Senior Tech Lead @ Tathva
+- 📫 [LinkedIn](https://www.linkedin.com/in/harshitsinghnitc/) | [GitHub](https://github.com/Harshit-0018)
